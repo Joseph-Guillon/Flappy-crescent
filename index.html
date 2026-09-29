@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Flappy Croissant - Le Petit Déjeuner Volant</title>
+    <!-- Polices Google Fonts Premium -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Pacifico&display=swap"
+        rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-dark: #1e130c;
+            --bg-light: #966f54;
+            --primary: #d39e6a;
+            --primary-hover: #b88553;
+            --accent: #5c3a21;
+            --text-light: #fffcf9;
+            --text-dark: #2d1b0f;
+            --glass-bg: rgba(45, 27, 15, 0.65);
+            --glass-border: rgba(255, 252, 249, 0.15);
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            background-image: radial-gradient(circle at center, var(--bg-light) 0%, var(--bg-dark) 100%);
+            font-family: 'Outfit', sans-serif;
+            color: var(--text-light);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Conteneur principal qui limite le jeu au ratio 9:16 sur PC */
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            max-width: 480px;
+            max-height: 800px;
+            background-color: #000;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8),
+                0 0 0 10px rgba(211, 158, 106, 0.1);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 4px solid var(--primary);
+        }
+
+        /* Adaptabilité plein écran sur mobile */
+        @media (max-width: 480px) {
+            #game-container {
+                max-width: 100vw;
+                max-height: 100vh;
+                border-radius: 0;
+                border: none;
+            }
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Overlays (écrans) communs */
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 24px;
+            z-index: 10;
+            transition: opacity 0.4s ease, visibility 0.4s ease;
+        }
+
+        .hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        /* Écran d'accueil */
+        #start-screen {
+            background: linear-gradient(to bottom, rgba(30, 19, 12, 0.8), rgba(92, 58, 33, 0.9));
+            text-align: center;
+        }
+
+        .title-logo {
+            font-family: 'Pacifico', cursive;
+            font-size: 3.5rem;
+            color: #ffd29d;
+            text-shadow: 0 4px 10px rgba(0, 0, 0, 0.5), 0 0 20px rgba(211, 158, 106, 0.4);
+            margin-bottom: 8px;
+            transform: rotate(-3deg);
+            animation: floatLogo 3s ease-in-out infinite alternate;
+        }
+
+        @keyframes floatLogo {
+            0% {
+                transform: translateY(0) rotate(-3deg);
+            }
+
+            100% {
+                transform: translateY(-10px) rotate(-1deg);
+            }
+        }
+
+        .sub-logo {
+            font-size: 1.1rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--primary);
+            font-weight: 600;
+            margin-bottom: 40px;
+        }
+
+        .croissant-preview {
+            font-size: 5rem;
+            margin-bottom: 40px;
+            animation: bounceCroissant 2s infinite ease-in-out;
+            filter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.4));
+        }
+
+        @keyframes bounceCroissant {
+
+            0%,
+            100% {
+                transform: translateY(0) scale(1);
+            }
+
+            50% {
+                transform: translateY(-15px) scale(1.05);
+            }
+        }
+
+        /* Écran de Game Over (Glassmorphism) */
+        #game-over-screen {
+            background-color: rgba(30, 19, 12, 0.4);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+
+        .glass-panel {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 32px;
+            width: 100%;
+            max-width: 360px;
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            transform: scale(0.9);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        #game-over-screen:not(.hidden) .glass-panel {
+            transform: scale(1);
+        }
+
+        .game-over-title {
+            font-family: 'Pacifico', cursive;
+            font-size: 2.2rem;
+            color: #f7a972;
+            margin-bottom: 24px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .score-board {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 30px;
+            background: rgba(0, 0, 0, 0.25);
+            padding: 16px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 252, 249, 0.05);
+        }
+
+        .score-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .score-label {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--primary);
+            margin-bottom: 6px;
+        }
+
+        .score-val {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--text-light);
+        }
+
+        /* Boutons premium */
+        .btn {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+            color: var(--text-dark);
+            border: none;
+            padding: 16px 36px;
+            font-size: 1.15rem;
+            font-weight: 800;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s, filter 0.2s;
+            box-shadow: 0 6px 18px rgba(211, 158, 106, 0.3);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            outline: none;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px) scale(1.03);
+            box-shadow: 0 8px 24px rgba(211, 158, 106, 0.4);
+            filter: brightness(1.05);
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+            box-shadow: 0 3px 10px rgba(211, 158, 106, 0.3);
+        }
+
+        /* Score en cours de jeu */
+        #game-score {
+            position: absolute;
+            top: 24px;
+            width: 100%;
+            text-align: center;
+            font-size: 3.5rem;
+            font-weight: 800;
+            color: var(--text-light);
+            text-shadow: 0 3px 6px rgba(0, 0, 0, 0.4);
+            z-index: 5;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+
+        /* Astuces de commande */
+        .instructions {
+            margin-top: 20px;
+            font-size: 0.9rem;
+            color: rgba(255, 252, 249, 0.6);
+            line-height: 1.5;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="game-container">
+        <!-- Affichage du Score -->
+        <div id="game-score" class="hidden">0</div>
+
+        <!-- Canvas principal du jeu -->
+        <canvas id="gameCanvas" width="480" height="800"></canvas>
+
+        <!-- Écran d'accueil -->
+        <div id="start-screen" class="screen">
+            <h1 class="title-logo">Flappy Croissant</h1>
+            <p class="sub-logo">Le réveil des saveurs</p>
+            <div class="croissant-preview">🥐</div>
+            <button id="btn-start" class="btn">Enfourner !</button>
+            <p class="instructions">
+                Appuie sur <strong>Espace</strong> ou clique pour t'envoler.<br>
+                Évite les baguettes géantes !
+            </p>
+        </div>
+
+        <!-- Écran de Game Over (Glassmorphism) -->
+        <div id="game-over-screen" class="screen hidden">
+            <div class="glass-panel">
+                <h2 class="game-over-title">Ah, la Miette !</h2>
+                <div class="score-board">
+                    <div class="score-item">
+                        <span class="score-label">Score</span>
+                        <span id="final-score" class="score-val">0</span>
+                    </div>
+                    <div class="score-item">
+                        <span class="score-label">Meilleur</span>
+                        <span id="best-score" class="score-val">0</span>
+                    </div>
+                </div>
+                <button id="btn-restart" class="btn">Recuire</button>
+                <p class="instructions" style="margin-top: 15px; font-size: 0.8rem;">
+                    N'abandonne pas, le boulanger te soutient !
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Éléments DOM
+        const startScreen = document.getElementById('start-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const scoreDisplay = document.getElementById('game-score');
+        const btnStart = document.getElementById('btn-start');
+        const btnRestart = document.getElementById('btn-restart');
+        const finalScoreVal = document.getElementById('final-score');
+        const bestScoreVal = document.getElementById('best-score');
+
+        // États du jeu
+        const STATES = {
+            START: 'START',
+            PLAYING: 'PLAYING',
+            GAMEOVER: 'GAMEOVER'
+        };
+        let gameState = STATES.START;
+
+        // Configuration Audio Web API
+        let audioCtx = null;
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        // Synthèse granulaire réaliste imitant le craquement de centaines de couches de pâte feuilletée
+        function playCrunchSound(isCrash = false) {
+            if (!audioCtx) return;
+            initAudio();
+            const now = audioCtx.currentTime;
+
+            // Nombre de micro-craquements (grains) pour recréer le feuilletage
+            const grainCount = isCrash ? 24 : 72;
+            const totalDuration = isCrash ? 0.5 : 0.9;
+
+            for (let i = 0; i < grainCount; i++) {
+                // Répartition temporelle exponentielle (plus dense au début de la morsure)
+                const delay = isCrash
+                    ? Math.pow(i / grainCount, 1.4) * totalDuration
+                    : (i / grainCount) * totalDuration * (0.5 + Math.random() * 0.5);
+
+                const grainTime = now + delay;
+                const grainDuration = 0.015 + Math.random() * 0.025; // Entre 15ms et 40ms
+
+                // Création d'un mini-buffer de bruit blanc pour chaque grain de pâte
+                const bufferSize = audioCtx.sampleRate * grainDuration;
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+
+                for (let j = 0; j < bufferSize; j++) {
+                    data[j] = Math.random() * 2 - 1;
+                }
+
+                const source = audioCtx.createBufferSource();
+                source.buffer = buffer;
+
+                // Filtre passe-bande à haute résonance pour cibler les craquements secs
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = 'bandpass';
+                // Fréquences variées pour simuler l'épaisseur irrégulière du feuilletage croustillant
+                const centerFreq = 2000 + Math.random() * 2400;
+                filter.frequency.setValueAtTime(centerFreq, grainTime);
+                filter.Q.setValueAtTime(4.5, grainTime);
+
+                // Enveloppe d'amplitude très sèche
+                const gainNode = audioCtx.createGain();
+                const volume = (isCrash ? 0.25 : 0.16) * (0.35 + Math.random() * 0.65);
+                gainNode.gain.setValueAtTime(volume, grainTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, grainTime + grainDuration - 0.002);
+
+                source.connect(filter);
+                filter.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                source.start(grainTime);
+                source.stop(grainTime + grainDuration);
+            }
+
+            // Fréquences basses pour donner du corps physique à l'action
+            if (isCrash) {
+                // Impact lourd de crash / écrasement
+                const osc = audioCtx.createOscillator();
+                const oscGain = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(110, now);
+                osc.frequency.linearRampToValueAtTime(20, now + 0.4);
+
+                oscGain.gain.setValueAtTime(0.25, now);
+                oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+                osc.connect(oscGain);
+                oscGain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(now + 0.42);
+            } else {
+                // Bruit d'air sous le croissant qui s'envole (flap)
+                const osc = audioCtx.createOscillator();
+                const oscGain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.exponentialRampToValueAtTime(320, now + 0.12);
+
+                oscGain.gain.setValueAtTime(0.12, now);
+                oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+                osc.connect(oscGain);
+                oscGain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(now + 0.14);
+            }
+        }
+
+        function playScoreSound() {
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+
+            const osc1 = audioCtx.createOscillator();
+            const gain1 = audioCtx.createGain();
+            osc1.type = 'sine';
+            osc1.frequency.setValueAtTime(523.25, now); // Do 5
+            gain1.gain.setValueAtTime(0.08, now);
+            gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+            osc1.connect(gain1);
+            gain1.connect(audioCtx.destination);
+            osc1.start();
+            osc1.stop(now + 0.12);
+
+            const osc2 = audioCtx.createOscillator();
+            const gain2 = audioCtx.createGain();
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(659.25, now + 0.08); // Mi 5
+            gain2.gain.setValueAtTime(0.08, now + 0.08);
+            gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+            osc2.connect(gain2);
+            gain2.connect(audioCtx.destination);
+            osc2.start(now + 0.08);
+            osc2.stop(now + 0.25);
+        }
+
+        // --- CONSTANTES & VARIABLES DE JEU ---
+        const GRAVITY = 0.35;
+        const JUMP_FORCE = -7.0;
+        const MAX_FALL_SPEED = 9.5;
+        const GAME_SPEED = 2.8;
+        const PIPE_SPAWN_RATE = 110;
+        const PIPE_GAP = 160;
+        const PIPE_WIDTH = 75;
+
+        let score = 0;
+        let highScore = parseInt(localStorage.getItem('flappy_croissant_high')) || 0;
+        let frameCount = 0;
+
+        // Entité Joueur (Croissant)
+        const player = {
+            x: 100,
+            y: 350,
+            radius: 20,
+            velocity: 0,
+            angle: 0,
+            jump() {
+                this.velocity = JUMP_FORCE;
+                playCrunchSound(false); // Craquement sec
+                spawnCrumbs(this.x, this.y);
+            },
+            update() {
+                this.velocity = Math.min(this.velocity + GRAVITY, MAX_FALL_SPEED);
+                this.y += this.velocity;
+
+                // Rotation dynamique
+                if (this.velocity < 0) {
+                    this.angle = -0.3;
+                } else if (this.velocity > 3) {
+                    this.angle = Math.min(this.angle + 0.04, 0.7);
+                } else {
+                    this.angle = Math.min(this.angle + 0.02, 0);
+                }
+
+                // Butée sol / plafond
+                if (this.y - this.radius < 0) {
+                    this.y = this.radius;
+                    this.velocity = 0;
+                }
+                if (this.y + this.radius > canvas.height - 80) {
+                    triggerGameOver();
+                }
+            },
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+
+                ctx.font = "38px Arial";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText("🥐", 0, 0);
+
+                ctx.restore();
+            }
+        };
+
+        let pipes = [];
+        let particles = [];
+        let clouds = [];
+        let cityscapeObjects = [];
+        let groundOffset = 0;
+
+        // Initialisation de la skyline parisienne
+        function initBackgroundElements() {
+            clouds = [];
+            for (let i = 0; i < 4; i++) {
+                clouds.push({
+                    x: Math.random() * canvas.width,
+                    y: 50 + Math.random() * 120,
+                    size: 30 + Math.random() * 40,
+                    speed: 0.1 + Math.random() * 0.2
+                });
+            }
+
+            // Définition de structures architecturales détaillées
+            cityscapeObjects = [
+                { type: 'roof', x: 20, w: 180, h: 90 },
+                { type: 'pantheon', x: 240, scale: 0.95 },
+                { type: 'roof', x: 390, w: 150, h: 80 },
+                { type: 'valDeGrace', x: 580, scale: 0.9 },
+                { type: 'roof', x: 700, w: 200, h: 100 },
+                { type: 'roof', x: 940, w: 160, h: 85 }
+            ];
+        }
+
+        // Génération d'un couple de baguettes
+        function spawnPipe() {
+            const minHeight = 90; // Laissé assez grand pour voir l'arrondi
+            const maxHeight = canvas.height - 80 - PIPE_GAP - minHeight;
+            const topHeight = minHeight + Math.floor(Math.random() * (maxHeight - minHeight));
+            const bottomY = topHeight + PIPE_GAP;
+
+            pipes.push({
+                x: canvas.width,
+                topHeight: topHeight,
+                bottomY: bottomY,
+                passed: false
+            });
+        }
+
+        // Système de particules pour les miettes
+        function spawnCrumbs(x, y) {
+            for (let i = 0; i < 8; i++) {
+                particles.push({
+                    x: x - 10,
+                    y: y + (Math.random() - 0.5) * 15,
+                    vx: -2 - Math.random() * 2.5,
+                    vy: (Math.random() - 0.5) * 3,
+                    size: 2 + Math.random() * 4,
+                    color: ['#e5a65d', '#bd7a1c', '#fcd484', '#fff3d1'][Math.floor(Math.random() * 4)],
+                    alpha: 1,
+                    decay: 0.02 + Math.random() * 0.03
+                });
+            }
+        }
+
+        // Mise à jour et dessin des particules
+        function handleParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.1;
+                p.alpha -= p.decay;
+
+                if (p.alpha <= 0) {
+                    particles.splice(i, 1);
+                } else {
+                    ctx.save();
+                    ctx.globalAlpha = p.alpha;
+                    ctx.fillStyle = p.color;
+                    ctx.fillRect(p.x, p.y, p.size, p.size);
+                    ctx.restore();
+                }
+            }
+        }
+
+        // --- FONCTIONS DE DESSIN ---
+
+        function drawSky() {
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            skyGrad.addColorStop(0, '#f97c56');   // Orange chaud
+            skyGrad.addColorStop(0.35, '#ffaf7b'); // Pêche doux
+            skyGrad.addColorStop(0.7, '#fff5df');  // Blanc crème
+            skyGrad.addColorStop(1, '#dcd3b8');    // Fond
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Soleil couchant/levant
+            ctx.save();
+            const sunGrad = ctx.createRadialGradient(80, 200, 10, 80, 200, 70);
+            sunGrad.addColorStop(0, 'rgba(255, 255, 230, 0.9)');
+            sunGrad.addColorStop(0.5, 'rgba(255, 220, 150, 0.4)');
+            sunGrad.addColorStop(1, 'rgba(255, 220, 150, 0)');
+            ctx.fillStyle = sunGrad;
+            ctx.beginPath();
+            ctx.arc(80, 200, 70, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // Dessin réaliste de la Tour Eiffel avec proportions exactes (base 125m, étages à 57m, 115m, 276m, sommet à 300m et antenne à 330m)
+        function drawDetailedEiffelTower(x, y, scale) {
+            ctx.save();
+            ctx.fillStyle = 'rgba(122, 90, 71, 0.18)';
+            ctx.strokeStyle = 'rgba(122, 90, 71, 0.28)';
+            ctx.lineWidth = 1.3 * scale;
+
+            const h = 230 * scale;
+            const baseW = h * 0.417; // Proportions de base réelles : 125m de large pour 300m de hauteur structurelle
+
+            const y1 = y - h * 0.19;      // 1er étage (57m / 300m = 19%)
+            const y2 = y - h * 0.383;     // 2e étage (115m / 300m = 38.3%)
+            const y3 = y - h * 0.92;      // 3e étage (276m / 300m = 92%)
+            const yPeak = y - h;          // Sommet de la structure (300m / 300m = 100%)
+            const yAntenna = y - h * 1.1; // Bout de l'antenne (330m / 300m = 110%)
+
+            // --- 1. PILIERS ET ARCHES (Jusqu'au 2ème étage) ---
+            // Courbe extérieure des jambes (de y à y2)
+            ctx.beginPath();
+            ctx.moveTo(x - baseW / 2, y);
+            ctx.quadraticCurveTo(x - baseW * 0.28, y - h * 0.25, x - baseW * 0.16, y2);
+            ctx.moveTo(x + baseW / 2, y);
+            ctx.quadraticCurveTo(x + baseW * 0.28, y - h * 0.25, x + baseW * 0.16, y2);
+            ctx.stroke();
+
+            // Arche centrale décorative sous le 1er étage
+            ctx.beginPath();
+            ctx.moveTo(x - baseW * 0.36, y);
+            ctx.quadraticCurveTo(x, y - h * 0.16, x + baseW * 0.36, y);
+            ctx.stroke();
+
+            // Piliers structurels intérieurs (de y à y1)
+            ctx.beginPath();
+            ctx.moveTo(x - baseW * 0.13, y1);
+            ctx.lineTo(x - baseW * 0.22, y);
+            ctx.moveTo(x + baseW * 0.13, y1);
+            ctx.lineTo(x + baseW * 0.22, y);
+            ctx.stroke();
+
+            // Treillis métalliques (croisillons) du bas
+            ctx.beginPath();
+            for (let i = 0.03; i < 0.19; i += 0.05) {
+                let currY = y - h * i;
+                let lxLeft = x - baseW * (0.5 - i * 0.8);
+                let lxRight = x - baseW * (0.35 - i * 0.6);
+                ctx.moveTo(lxLeft, currY);
+                ctx.lineTo(lxRight, currY - h * 0.02);
+                ctx.moveTo(lxRight, currY - h * 0.02);
+                ctx.lineTo(lxLeft, currY);
+
+                let rxLeft = x + baseW * (0.35 - i * 0.6);
+                let rxRight = x + baseW * (0.5 - i * 0.8);
+                ctx.moveTo(rxLeft, currY - h * 0.02);
+                ctx.lineTo(rxRight, currY);
+                ctx.moveTo(rxRight, currY);
+                ctx.lineTo(rxLeft, currY - h * 0.02);
+            }
+            ctx.stroke();
+
+            // --- 2. PREMIÈRE PLATEFORME (57m) ---
+            ctx.fillRect(x - baseW * 0.23, y1, baseW * 0.46, 8 * scale);
+            ctx.strokeRect(x - baseW * 0.23, y1, baseW * 0.46, 8 * scale);
+
+            // --- 3. SECTION INTERMÉDIAIRE (Du 1er au 2e étage) ---
+            ctx.beginPath();
+            ctx.moveTo(x - baseW * 0.18, y1);
+            ctx.lineTo(x - baseW * 0.16, y2);
+            ctx.moveTo(x + baseW * 0.18, y1);
+            ctx.lineTo(x + baseW * 0.16, y2);
+            ctx.stroke();
+
+            // Treillis intermédiaire
+            ctx.beginPath();
+            for (let i = 0.21; i < 0.38; i += 0.05) {
+                let currY = y - h * i;
+                let wAtY = baseW * (0.22 - (i - 0.19) * 0.25);
+                ctx.moveTo(x - wAtY, currY);
+                ctx.lineTo(x + wAtY, currY - h * 0.02);
+                ctx.moveTo(x + wAtY, currY);
+                ctx.lineTo(x - wAtY, currY - h * 0.02);
+            }
+            ctx.stroke();
+
+            // --- 4. DEUXIÈME PLATEFORME (115m) ---
+            ctx.fillRect(x - baseW * 0.17, y2, baseW * 0.34, 6 * scale);
+            ctx.strokeRect(x - baseW * 0.17, y2, baseW * 0.34, 6 * scale);
+
+            // --- 5. TOWER FLÈCHE PRINCIPALE (Du 2e au 3e étage) ---
+            ctx.beginPath();
+            ctx.moveTo(x - baseW * 0.13, y2);
+            ctx.quadraticCurveTo(x - baseW * 0.05, y - h * 0.75, x - baseW * 0.04, y3);
+            ctx.moveTo(x + baseW * 0.13, y2);
+            ctx.quadraticCurveTo(x + baseW * 0.05, y - h * 0.75, x + baseW * 0.04, y3);
+            ctx.stroke();
+
+            // Croisillons structurels de la flèche
+            ctx.beginPath();
+            ctx.moveTo(x, y2);
+            ctx.lineTo(x, y3);
+            for (let j = 0.40; j < 0.90; j += 0.08) {
+                let currY = y - h * j;
+                let wAtY = baseW * (0.13 - (j - 0.38) * 0.16);
+                ctx.moveTo(x - wAtY, currY);
+                ctx.lineTo(x + wAtY, currY + h * 0.03);
+                ctx.moveTo(x + wAtY, currY);
+                ctx.lineTo(x - wAtY, currY + h * 0.03);
+            }
+            ctx.stroke();
+
+            // --- 6. TROISIÈME PLATEFORME / SOMMET (276m) ---
+            ctx.fillRect(x - baseW * 0.06, y3, baseW * 0.12, 5 * scale);
+            ctx.strokeRect(x - baseW * 0.06, y3, baseW * 0.12, 5 * scale);
+
+            // --- 7. DÔME SUPÉRIEUR (276m à 300m) ---
+            ctx.beginPath();
+            ctx.moveTo(x - baseW * 0.04, y3);
+            ctx.quadraticCurveTo(x - baseW * 0.015, y - h * 0.98, x, yPeak);
+            ctx.quadraticCurveTo(x + baseW * 0.015, y - h * 0.98, x + baseW * 0.04, y3);
+            ctx.fill();
+            ctx.stroke();
+
+            // --- 8. ANTENNE TELE DIFFUSION (300m à 330m) ---
+            ctx.beginPath();
+            ctx.moveTo(x, yPeak);
+            ctx.lineTo(x, yAntenna);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        // Dessin du Panthéon
+        function drawPantheon(x, y, scale) {
+            ctx.save();
+            ctx.fillStyle = 'rgba(102, 73, 56, 0.22)';
+            ctx.strokeStyle = 'rgba(102, 73, 56, 0.32)';
+            ctx.lineWidth = 1 * scale;
+
+            const w = 90 * scale;
+            const h = 75 * scale;
+
+            // Soubassement & colonnade avant
+            ctx.fillRect(x - w / 2, y - h * 0.32, w, h * 0.32);
+
+            // Fronton triangulaire classique
+            ctx.beginPath();
+            ctx.moveTo(x - w * 0.42, y - h * 0.32);
+            ctx.lineTo(x, y - h * 0.48);
+            ctx.lineTo(x + w * 0.42, y - h * 0.32);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Tambour de la coupole
+            ctx.fillRect(x - w * 0.24, y - h * 0.66, w * 0.48, h * 0.18);
+
+            // Colonnes du tambour
+            ctx.beginPath();
+            for (let cx = -w * 0.2; cx <= w * 0.2; cx += w * 0.08) {
+                ctx.moveTo(x + cx, y - h * 0.66);
+                ctx.lineTo(x + cx, y - h * 0.48);
+            }
+            ctx.stroke();
+
+            // Le Dôme principal
+            ctx.beginPath();
+            ctx.arc(x, y - h * 0.66, w * 0.22, Math.PI, 0, false);
+            ctx.fill();
+            ctx.stroke();
+
+            // Lanterne du dôme
+            ctx.fillRect(x - w * 0.04, y - h * 0.94, w * 0.08, h * 0.08);
+            ctx.beginPath();
+            ctx.moveTo(x, y - h * 0.94);
+            ctx.lineTo(x, y - h);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        // Dessin du Val-de-Grâce
+        function drawValDeGrace(x, y, scale) {
+            ctx.save();
+            ctx.fillStyle = 'rgba(102, 73, 56, 0.22)';
+            ctx.strokeStyle = 'rgba(102, 73, 56, 0.32)';
+            ctx.lineWidth = 1 * scale;
+
+            const w = 70 * scale;
+            const h = 95 * scale;
+
+            // Structure basse de l'église
+            ctx.fillRect(x - w / 2, y - h * 0.25, w, h * 0.25);
+
+            // Section intermédiaire avec ailerons baroques (volutes)
+            ctx.fillRect(x - w * 0.3, y - h * 0.45, w * 0.6, h * 0.2);
+            ctx.beginPath();
+            ctx.moveTo(x - w * 0.42, y - h * 0.25);
+            ctx.quadraticCurveTo(x - w * 0.3, y - h * 0.35, x - w * 0.3, y - h * 0.45);
+            ctx.moveTo(x + w * 0.42, y - h * 0.25);
+            ctx.quadraticCurveTo(x + w * 0.3, y - h * 0.35, x + w * 0.3, y - h * 0.45);
+            ctx.stroke();
+
+            // Tambour surélevé
+            ctx.fillRect(x - w * 0.2, y - h * 0.7, w * 0.4, h * 0.25);
+
+            // Dôme baroque nervuré
+            ctx.beginPath();
+            ctx.arc(x, y - h * 0.7, w * 0.18, Math.PI, 0, false);
+            ctx.fill();
+            ctx.stroke();
+
+            // Dessin des nervures du dôme
+            ctx.beginPath();
+            ctx.moveTo(x, y - h * 0.88);
+            ctx.quadraticCurveTo(x - w * 0.08, y - h * 0.8, x - w * 0.12, y - h * 0.7);
+            ctx.moveTo(x, y - h * 0.88);
+            ctx.quadraticCurveTo(x + w * 0.08, y - h * 0.8, x + w * 0.12, y - h * 0.7);
+            ctx.moveTo(x, y - h * 0.88);
+            ctx.lineTo(x, y - h * 0.7);
+            ctx.stroke();
+
+            // Lanterne et flèche élancée
+            ctx.fillRect(x - w * 0.03, y - h * 0.92, w * 0.06, h * 0.04);
+            ctx.beginPath();
+            ctx.moveTo(x, y - h * 0.92);
+            ctx.lineTo(x, y - h);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        // Dessin d'un toit Haussmannien typique avec fenêtres et cheminées
+        function drawHaussmannRoof(x, y, width, height) {
+            ctx.save();
+            ctx.fillStyle = 'rgba(102, 73, 56, 0.26)';
+            ctx.strokeStyle = 'rgba(102, 73, 56, 0.36)';
+            ctx.lineWidth = 1;
+
+            // Profil mansardé
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x, y - height * 0.35); // Façade verticale
+            ctx.lineTo(x + width * 0.15, y - height * 0.85); // Brisis (pente raide)
+            ctx.lineTo(x + width * 0.85, y - height * 0.85); // Terrasson (sommet plus plat)
+            ctx.lineTo(x + width, y - height * 0.35);
+            ctx.lineTo(x + width, y);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Petites cheminées alignées sur le toit (mitres en argile)
+            ctx.fillStyle = 'rgba(135, 80, 60, 0.3)';
+            for (let cx = x + width * 0.22; cx < x + width * 0.8; cx += 25) {
+                ctx.fillRect(cx, y - height * 0.96, 6, 12);
+                ctx.strokeRect(cx, y - height * 0.96, 6, 12);
+            }
+
+            // Fenêtres de toit (Lucarnes mansardées)
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+            for (let wx = x + width * 0.2; wx < x + width * 0.8; wx += 35) {
+                ctx.fillRect(wx, y - height * 0.68, 10, 14);
+                ctx.strokeRect(wx, y - height * 0.68, 10, 14);
+                // Petit fronton au-dessus de la fenêtre
+                ctx.beginPath();
+                ctx.moveTo(wx - 2, y - height * 0.68);
+                ctx.lineTo(wx + 5, y - height * 0.76);
+                ctx.lineTo(wx + 12, y - height * 0.68);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        // Rendu global de la skyline
+        function drawCityscape() {
+            // Défilement très lent de la Tour Eiffel (effet de parallaxe lointaine)
+            let eiffelX = (canvas.width + 120) - (frameCount * 0.12) % (canvas.width + 420);
+            drawDetailedEiffelTower(eiffelX, canvas.height - 80, 1.2);
+
+            cityscapeObjects.forEach(obj => {
+                if (obj.type === 'roof') {
+                    drawHaussmannRoof(obj.x, canvas.height - 80, obj.w, obj.h);
+                } else if (obj.type === 'pantheon') {
+                    drawPantheon(obj.x + 45 * obj.scale, canvas.height - 80, obj.scale);
+                } else if (obj.type === 'valDeGrace') {
+                    drawValDeGrace(obj.x + 35 * obj.scale, canvas.height - 80, obj.scale);
+                }
+            });
+        }
+
+        function drawClouds() {
+            ctx.save();
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+            clouds.forEach(cloud => {
+                cloud.x -= cloud.speed;
+                if (cloud.x + cloud.size * 2 < 0) {
+                    cloud.x = canvas.width + 50;
+                    cloud.y = 50 + Math.random() * 120;
+                }
+
+                ctx.beginPath();
+                ctx.arc(cloud.x, cloud.y, cloud.size * 0.5, 0, Math.PI * 2);
+                ctx.arc(cloud.x + cloud.size * 0.4, cloud.y - cloud.size * 0.2, cloud.size * 0.45, 0, Math.PI * 2);
+                ctx.arc(cloud.x + cloud.size * 0.8, cloud.y, cloud.size * 0.4, 0, Math.PI * 2);
+                ctx.closePath();
+                ctx.fill();
+            });
+            ctx.restore();
+        }
+
+        function drawGround() {
+            const groundY = canvas.height - 80;
+            ctx.fillStyle = '#4e3321';
+            ctx.fillRect(0, groundY + 12, canvas.width, canvas.height - groundY);
+
+            ctx.fillStyle = '#7a5136';
+            ctx.fillRect(0, groundY, canvas.width, 12);
+
+            ctx.fillStyle = '#ffd29d';
+            ctx.fillRect(0, groundY, canvas.width, 2);
+
+            ctx.strokeStyle = '#5a3b27';
+            ctx.lineWidth = 2;
+            for (let x = -40; x < canvas.width + 40; x += 30) {
+                const px = x - (groundOffset % 30);
+                ctx.beginPath();
+                ctx.moveTo(px, groundY + 12);
+                ctx.lineTo(px - 10, canvas.height);
+                ctx.stroke();
+            }
+        }
+
+        // Dessin des obstacles en forme de baguettes avec extrémités hémisphériques (très arrondies)
+        function drawBaguette(x, y, width, height, isTop) {
+            ctx.save();
+
+            // Dégradé 3D cylindrique pour simuler la croûte dorée
+            const grad = ctx.createLinearGradient(x, 0, x + width, 0);
+            grad.addColorStop(0, '#864319');
+            grad.addColorStop(0.25, '#c57833');
+            grad.addColorStop(0.5, '#f5b565');
+            grad.addColorStop(0.75, '#c57833');
+            grad.addColorStop(1, '#77370f');
+
+            ctx.fillStyle = grad;
+            ctx.strokeStyle = '#53280c';
+            ctx.lineWidth = 3;
+
+            // Extrémité parfaitement arrondie en demi-cercle (rayon = demi-largeur)
+            const radius = width / 2;
+
+            ctx.beginPath();
+            if (isTop) {
+                // Baguette supérieure : s'arrondit complètement à son extrémité basse (dôme vers le bas)
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, height - radius);
+                // Arc de gauche à droite pointant vers le bas (anticlockwise = true)
+                ctx.arc(x + radius, height - radius, radius, Math.PI, 0, true);
+                ctx.lineTo(x + width, 0);
+            } else {
+                // Baguette inférieure : s'arrondit complètement à son extrémité haute (dôme vers le haut)
+                ctx.moveTo(x, canvas.height);
+                ctx.lineTo(x, y + radius);
+                // Arc de gauche à droite pointant vers le haut (anticlockwise = false)
+                ctx.arc(x + radius, y + radius, radius, Math.PI, 0, false);
+                ctx.lineTo(x + width, canvas.height);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Incisions de boulanger
+            ctx.fillStyle = 'rgba(255, 235, 195, 0.45)';
+
+            // Décale le début et la fin des incisions pour ne pas dessiner sur le dôme
+            const startY = isTop ? 30 : y + radius + 25;
+            const endY = isTop ? height - radius - 25 : canvas.height - 40;
+
+            for (let iy = startY; iy < endY; iy += 55) {
+                ctx.beginPath();
+                ctx.ellipse(x + width / 2, iy, width * 0.32, 6, Math.PI / 6, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.strokeStyle = '#5e2d10';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        // --- GESTION DE LA PHYSIQUE & DES COLLISIONS ---
+
+        function updateBackground() {
+            // Défilement constant des nuages et de la skyline (même à l'arrêt)
+            cityscapeObjects.forEach(obj => {
+                obj.x -= 0.45;
+                let objWidth = obj.w || (obj.type === 'pantheon' ? 90 * obj.scale : 70 * obj.scale);
+                if (obj.x + objWidth < -50) {
+                    let maxX = 0;
+                    cityscapeObjects.forEach(o => {
+                        let w = o.w || (o.type === 'pantheon' ? 90 * o.scale : 70 * o.scale);
+                        if (o.x + w > maxX) maxX = o.x + w;
+                    });
+                    obj.x = maxX + 40 + Math.random() * 80;
+                }
+            });
+
+            // Vitesse du sol accélérée en jeu
+            groundOffset = (groundOffset + (gameState === STATES.PLAYING ? GAME_SPEED : 0.8)) % canvas.width;
+
+            frameCount++;
+        }
+
+        function updateGame() {
+            updateBackground();
+
+            if (gameState !== STATES.PLAYING) return;
+
+            player.update();
+
+            // Génération périodique des baguettes
+            if (frameCount % PIPE_SPAWN_RATE === 0) {
+                spawnPipe();
+            }
+
+            // Mise à jour des obstacles
+            for (let i = pipes.length - 1; i >= 0; i--) {
+                const pipe = pipes[i];
+                pipe.x -= GAME_SPEED;
+
+                // Score
+                if (!pipe.passed && pipe.x + PIPE_WIDTH < player.x) {
+                    pipe.passed = true;
+                    score++;
+                    scoreDisplay.innerText = score;
+                    playScoreSound();
+                }
+
+                // Collisions
+                if (checkCollision(player, pipe)) {
+                    triggerGameOver();
+                }
+
+                if (pipe.x + PIPE_WIDTH < 0) {
+                    pipes.splice(i, 1);
+                }
+            }
+        }
+
+        function checkCollision(circle, pipe) {
+            const buffer = 4;
+
+            const withinTopX = (circle.x + circle.radius - buffer > pipe.x) &&
+                (circle.x - circle.radius + buffer < pipe.x + PIPE_WIDTH);
+            const withinTopY = (circle.y - circle.radius + buffer < pipe.topHeight);
+
+            if (withinTopX && withinTopY) return true;
+
+            const withinBottomX = (circle.x + circle.radius - buffer > pipe.x) &&
+                (circle.x - circle.radius + buffer < pipe.x + PIPE_WIDTH);
+            const withinBottomY = (circle.y + circle.radius - buffer > pipe.bottomY);
+
+            if (withinBottomX && withinBottomY) return true;
+
+            return false;
+        }
+
+        // --- CONTRÔLES ---
+
+        function handleJump(e) {
+            if (e) e.preventDefault();
+            initAudio();
+
+            if (gameState === STATES.PLAYING) {
+                player.jump();
+            } else if (gameState === STATES.START) {
+                startGame();
+            }
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                handleJump(e);
+            }
+        });
+
+        const gameContainer = document.getElementById('game-container');
+        gameContainer.addEventListener('touchstart', handleJump, { passive: false });
+        gameContainer.addEventListener('mousedown', (e) => {
+            if (e.target.tagName !== 'BUTTON') {
+                handleJump(e);
+            }
+        });
+
+        // --- GESTION DES ÉTATS ---
+
+        function startGame() {
+            initAudio();
+            gameState = STATES.PLAYING;
+            score = 0;
+            pipes = [];
+            particles = [];
+
+            player.y = 300;
+            player.velocity = 0;
+            player.angle = 0;
+
+            scoreDisplay.innerText = score;
+            scoreDisplay.classList.remove('hidden');
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+        }
+
+        function triggerGameOver() {
+            gameState = STATES.GAMEOVER;
+            playCrunchSound(true); // Gros craquement / écrasement
+
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('flappy_croissant_high', highScore);
+            }
+
+            finalScoreVal.innerText = score;
+            bestScoreVal.innerText = highScore;
+
+            scoreDisplay.classList.add('hidden');
+            gameOverScreen.classList.remove('hidden');
+        }
+
+        // Événements boutons
+        btnStart.addEventListener('click', (e) => {
+            e.stopPropagation();
+            startGame();
+        });
+
+        btnRestart.addEventListener('click', (e) => {
+            e.stopPropagation();
+            startGame();
+        });
+
+        // --- BOUCLE PRINCIPALE ---
+
+        function loop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            drawSky();
+            drawClouds();
+            drawCityscape();
+
+            // Gestion des tuyaux
+            pipes.forEach(pipe => {
+                drawBaguette(pipe.x, 0, PIPE_WIDTH, pipe.topHeight, true);
+                drawBaguette(pipe.x, pipe.bottomY, PIPE_WIDTH, canvas.height - pipe.bottomY - 80, false);
+            });
+
+            // Dessin du joueur & miettes
+            if (gameState === STATES.PLAYING || gameState === STATES.GAMEOVER) {
+                player.draw();
+                handleParticles();
+            }
+
+            drawGround();
+
+            // Met à jour la physique et les défilements
+            updateGame();
+
+            requestAnimationFrame(loop);
+        }
+
+        // --- DÉMARRAGE ---
+        initBackgroundElements();
+        loop();
+    </script>
+</body>
+
+</html>
